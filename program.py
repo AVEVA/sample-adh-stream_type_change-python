@@ -28,7 +28,7 @@ def generate_adapter_upgrade_mappings(adapter_name, ocs_client):
     new_types = ocs_client.Types.getTypes(namespace_id, query=type_search_query)
 
     # Before creating the stream views, user confirmation is requested
-    print(f'Found {len(new_types)} types that are potentially going to be have stream views created to map old types to them.')
+    print(f'Found {len(new_types)} types that are potentially going to be have stream views created to map existing types to them.')
     response = input('Would you like to see their IDs? (y/n): ')
     print()
 
@@ -44,20 +44,20 @@ def generate_adapter_upgrade_mappings(adapter_name, ocs_client):
 
         for new_type in new_types:
 
-            # Extract out the data type from the type name, and infer the old type name
+            # Extract out the data type from the type name, and infer the existing type name
             data_type = new_type.Id.split('.')[1] # 0 = 'TimeIndexed'; 1 = <data type>; 2 = '<adapter_name>Quality
-            old_type_id = f'TimeIndexed.{data_type}'
+            existing_type_id = f'TimeIndexed.{data_type}'
 
             # Create the stream views from existing type to new type
             # Note: Explicit property mappings are not required for this conversion because OCS can infer them from the property names
             this_stream_view_id = f'{adapter_name}_{data_type}_quality'
-            this_stream_view = SdsStreamView(id=this_stream_view_id, source_type_id=old_type_id, target_type_id=new_type.Id)
+            this_stream_view = SdsStreamView(id=this_stream_view_id, source_type_id=existing_type_id, target_type_id=new_type.Id)
 
-            print(f'Creating streamview with id {this_stream_view_id} mapping {old_type_id} to {new_type.Id}...')
+            print(f'Creating streamview with id {this_stream_view_id} mapping {existing_type_id} to {new_type.Id}...')
             this_stream_view = ocs_client.StreamViews.getOrCreateStreamView(namespace_id, this_stream_view)
 
-            # add the streamview id to the mappings list under the key of the old type id
-            mapping[old_type_id] = this_stream_view.Id
+            # add the streamview id to the mappings list under the key of the existing type id
+            mapping[existing_type_id] = this_stream_view.Id
 
     else:
         print('Returning blank mapping table')
@@ -78,15 +78,15 @@ ocs_client = OCSClient(appsettings.get('ApiVersion'),
 namespace_id = appsettings.get('NamespaceId')
 stream_search_query = appsettings.get('StreamSearchPattern')
 
-# Create a dictionary that maps the old type name to the stream view id that maps that type to the corresponding new type
+# Create a dictionary that maps the existing type name to the stream view id that maps that type to the corresponding new type
 # Only a dictionary is needed to proceed, but the sample can generate its own for the adapter upgrade from 1.1 to 1.2. 
 # Uncommented certain lines of code such that one type_to_stream_view_mappings object is created
 
 ### Generic use case ###
-# type_to_stream_view_mappings = {
-#     'old_type1': 'stream_view_id1',
-#     'old_type2': 'stream_view_id2'
-# }
+""" type_to_stream_view_mappings = {
+        'existing_type1': 'stream_view_id1',
+        'existing_type2': 'stream_view_id2'
+    } """
 # Note: the stream views will need to be created first, whether programmatically or through the OCS portal
 
 ### Adapter 1.1 to 1.2 upgrade use case ###
