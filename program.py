@@ -30,13 +30,16 @@ def generate_adapter_upgrade_mappings(adapter_name, ocs_client):
     # Before creating the stream views, user confirmation is requested
     print(f'Found {len(new_types)} types that are potentially going to be have stream views created to map old types to them.')
     response = input('Would you like to see their IDs? (y/n): ')
+    print()
 
     if response.lower() == 'y' or response.lower() == 'yes':
         for new_type in new_types:
             print(new_type.Id)
 
+    print()
     response = input('Would you like to create the stream views? (y/n): ')
-    
+    print()
+
     if response.lower() == 'y' or response.lower() == 'yes':
 
         for new_type in new_types:
@@ -93,14 +96,19 @@ type_to_stream_view_mappings = generate_adapter_upgrade_mappings(appsettings.get
 streams = ocs_client.Streams.getStreams(namespace_id, query=stream_search_query)
 
 # Before changing the streams, user confirmation is requested
+print()
 print(f'Found {len(streams)} streams that are potentially going to be converted using stream view.')
+print()
 response = input('Would you like to see their IDs? (y/n): ')
+print()
 
 if response.lower() == 'y' or response.lower() == 'yes':
     for stream in streams:
         print(f'ID: {stream.Id} Name: {stream.Name}')
 
+print()
 response = input('Would you like to continue with the type conversions? (y/n): ')
+print()
 
 if response.lower() == 'y' or response.lower() == 'yes':
 
@@ -123,6 +131,7 @@ if response.lower() == 'y' or response.lower() == 'yes':
             print(f'Skipped {stream.Id} because it has a type of {stream.TypeId}, which is not in the mappings table.')
             skipped_streams += 1
                     
+    print()
     print(f'Operation completed. Successfully converted {converted_streams} streams and skipped {skipped_streams} streams.')
 
 else:
