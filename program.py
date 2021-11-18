@@ -1,4 +1,5 @@
 import json
+import traceback
 from ocs_sample_library_preview import (OCSClient, Types, Streams, StreamViews, SdsStreamView)
 
 def get_appsettings():
@@ -16,7 +17,7 @@ def get_appsettings():
 
     return appsettings
 
-def generate_adapter_upgrade_mappings(adapter_name, ocs_client):
+def generate_adapter_upgrade_mappings(adapter_name, ocs_client, namespace_id):
     """This function takes in an adapter name (such as 'OpcUa'), generates the necessary stream views,
     and returns a mapping table for the existing type to the stream view that maps it to the new type.
     This function is specific to the adapter version 1.1 to 1.2 upgrade use case"""
@@ -58,81 +59,103 @@ def generate_adapter_upgrade_mappings(adapter_name, ocs_client):
 
             # add the streamview id to the mappings list under the key of the existing type id
             mapping[existing_type_id] = this_stream_view.Id
+        
+        print('Done creating stream views.')
 
     else:
         print('Returning blank mapping table')
         
     return mapping
 
-appsettings = get_appsettings()
+def main(test=False):
+    """This function is the main body of the SDS sample script"""
+    exception = None
 
-# Read configuration from appsettings.json and create the OCS client object
-print()
-print('Step 1: Authenticate against OCS')
-ocs_client = OCSClient(appsettings.get('ApiVersion'),
-                        appsettings.get('TenantId'),
-                        appsettings.get('Resource'),
-                        appsettings.get('ClientId'),
-                        appsettings.get('ClientSecret'))
+    try:
+        appsettings = get_appsettings()
 
-namespace_id = appsettings.get('NamespaceId')
-stream_search_query = appsettings.get('StreamSearchPattern')
+        # Read configuration from appsettings.json and create the OCS client object
+        print()
+        print('Step 1: Authenticate against OCS')
+        ocs_client = OCSClient(appsettings.get('ApiVersion'),
+                                appsettings.get('TenantId'),
+                                appsettings.get('Resource'),
+                                appsettings.get('ClientId'),
+                                appsettings.get('ClientSecret'))
 
-# Create a dictionary that maps the existing type name to the stream view id that maps that type to the corresponding new type
-# Only a dictionary is needed to proceed, but the sample can generate its own for the adapter upgrade from 1.1 to 1.2. 
-# Uncommented certain lines of code such that one type_to_stream_view_mappings object is created
+        namespace_id = appsettings.get('NamespaceId')
+        stream_search_query = appsettings.get('StreamSearchPattern')
 
-### Generic use case ###
-""" type_to_stream_view_mappings = {
-        'existing_type1': 'stream_view_id1',
-        'existing_type2': 'stream_view_id2'
-    } """
-# Note: the stream views will need to be created first, whether programmatically or through the OCS portal
+        # Create a dictionary that maps the existing type name to the stream view id that maps that type to the corresponding new type
+        # Only a dictionary is needed to proceed, but the sample can generate its own for the adapter upgrade from 1.1 to 1.2. 
+        # Uncommented certain lines of code such that one type_to_stream_view_mappings object is created
 
-### Adapter 1.1 to 1.2 upgrade use case ###
-type_to_stream_view_mappings = generate_adapter_upgrade_mappings(appsettings.get('AdapterName'), ocs_client)
+        ### Generic use case ###
+        """ type_to_stream_view_mappings = {
+                'existing_type1': 'stream_view_id1',
+                'existing_type2': 'stream_view_id2'
+            } """
+        # Note: the stream views will need to be created first, whether programmatically or through the OCS portal
 
-# Get streams in the namespace
-streams = ocs_client.Streams.getStreams(namespace_id, query=stream_search_query)
+        ### Adapter 1.1 to 1.2 upgrade use case ###
+        type_to_stream_view_mappings = generate_adapter_upgrade_mappings(appsettings.get('AdapterName'), ocs_client, namespace_id)
 
-# Before changing the streams, user confirmation is requested
-print()
-print(f'Found {len(streams)} streams that are potentially going to be converted using stream view.')
-print()
-response = input('Would you like to see their IDs? (y/n): ')
-print()
+        # Get streams in the namespace
+        streams = ocs_client.Streams.getStreams(namespace_id, query=stream_search_query)
 
-if response.lower() == 'y' or response.lower() == 'yes':
-    for stream in streams:
-        print(f'ID: {stream.Id} Name: {stream.Name}')
+        # Before changing the streams, user confirmation is requested
+        print()
+        print(f'Found {len(streams)} streams that are potentially going to be converted using stream view.')
+        print()
+        response = input('Would you like to see their IDs? (y/n): ')
+        print()
 
-print()
-response = input('Would you like to continue with the type conversions? (y/n): ')
-print()
+        if response.lower() == 'y' or response.lower() == 'yes':
+            for stream in streams:
+                print(f'ID: {stream.Id} Name: {stream.Name}')
 
-if response.lower() == 'y' or response.lower() == 'yes':
+        print()
+        response = input('Would you like to continue with the type conversions? (y/n): ')
+        print()
 
-    print('Processing streams...')
-    
-    # Keep track of the streams processed and skipped
-    converted_streams = 0
-    skipped_streams = 0
+        if response.lower() == 'y' or response.lower() == 'yes':
 
-    for stream in streams:
+            print('Processing streams...')
+            
+            # Keep track of the streams processed and skipped
+            converted_streams = 0
+            skipped_streams = 0
 
-        # Look for the stream's existing type in the mappings table. If it's there, apply the stream view
-        if stream.TypeId in type_to_stream_view_mappings:
-            print(f'Changing type of {stream.Id} away from {stream.TypeId} using steamview id {type_to_stream_view_mappings[stream.TypeId]}...')
-            ocs_client.Streams.updateStreamType(namespace_id, stream_id=stream.Id, stream_view_id=type_to_stream_view_mappings[stream.TypeId])
-            converted_streams += 1
+            for stream in streams:
 
-        # If it's not, skip it and notify the user why it wasn't processed
+                # Look for the stream's existing type in the mappings table. If it's there, apply the stream view
+                if stream.TypeId in type_to_stream_view_mappings:
+                    print(f'Changing type of {stream.Id} away from {stream.TypeId} using steamview id {type_to_stream_view_mappings[stream.TypeId]}...')
+                    ocs_client.Streams.updateStreamType(namespace_id, stream_id=stream.Id, stream_view_id=type_to_stream_view_mappings[stream.TypeId])
+                    converted_streams += 1
+
+                # If it's not, skip it and notify the user why it wasn't processed
+                else:
+                    print(f'Skipped {stream.Id} because it has a type of {stream.TypeId}, which is not in the mappings table.')
+                    skipped_streams += 1
+                            
+            print()
+            print(f'Operation completed. Successfully converted {converted_streams} streams and skipped {skipped_streams} streams.')
+
         else:
-            print(f'Skipped {stream.Id} because it has a type of {stream.TypeId}, which is not in the mappings table.')
-            skipped_streams += 1
-                    
-    print()
-    print(f'Operation completed. Successfully converted {converted_streams} streams and skipped {skipped_streams} streams.')
+            print('Exiting. No transformation is going to happen.')
 
-else:
-    print('Exiting. No transformation is going to happen.')
+    except Exception as error:
+        print((f'Encountered Error: {error}'))
+        print()
+        traceback.print_exc()
+        print()
+        exception = error
+
+    finally:
+        if test and exception is not None:
+            raise exception
+
+
+if __name__ == '__main__':
+    main()
