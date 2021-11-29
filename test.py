@@ -1,6 +1,5 @@
 """This script tests the OCS Stream Type Change Python sample script"""
 
-import copy
 import json
 from os import name
 import unittest
@@ -47,8 +46,18 @@ class OCSStreamTypeChangePythonSampleTests(unittest.TestCase):
         adapter_name = appsettings.get('AdapterName')
         stream_search_query = appsettings.get('StreamSearchPattern')
 
+        # Fail the test now if the sample is about to use a stream search pattern that doesn't match the stream_id_template that the unit test will use below.
+        # This approach is safer than running the test against any arbitrary search pattern, and letting the test framework determine which streams were new and which were exsiting
+        # NOTE: changing this query string requires a change of the successful type change assertion further down the script
+        expected_stream_search_query = 'unittest_for_* AND *_conversion'
+        assert expected_stream_search_query.lower() == stream_search_query.lower(), f'stream search pattern did not matched expected value of {expected_stream_search_query}. Abandonning test to prevent unintentional CRUD operations'
+        
+        # confirm no streams with this search pattern already exist. Fail the test if there are
+        existing_streams_matching_pattern = ocs_client.Streams.getStreams(namespace_id=namespace_id, query=stream_search_query)
+        assert len(existing_streams_matching_pattern) == 0, f'streams matching the search pattern {stream_search_query} already exist on the Namespace. Abandonning test to prevent unintentional CRUD operations')
+
         num_streams_per_type = 2
-        stream_id_template = 'unittest_for_{sds_type}_conversion_{i}'
+        stream_id_template = 'unittest_for_{sds_type}_{i}_conversion'
 
         streams_created = []
         types_created = []
@@ -116,6 +125,16 @@ class OCSStreamTypeChangePythonSampleTests(unittest.TestCase):
             finally:
                 pass
 
+            # check that the streams now have the correctly updated types
+            updated_streams = ocs_client.Streams.getStreams(namespace_id=namespace_id, query=existing_stream_view_query)
+
+            for updated_stream in updated_streams:
+                # stream id pattern contains the old data type, extract it out: 'unittest_for_{sds_type}_{i}_conversion'
+                old_data_type = updated_stream.Name.split('_')[2]
+                expected_new_type = f'{old_data_type}.{adapter_name}Quality'
+                assert updated_stream.TypeId == expected_new_type, f'type conversion failed for {updated_stream.Id}. old type: {old_data_type}, expected type: {expected_new_type}, new type: {updated_stream.TypeId}'
+
+
         except Exception as e:
             print(f'Exception in the testing framework: {e}')
             exception = e
@@ -155,8 +174,7 @@ class OCSStreamTypeChangePythonSampleTests(unittest.TestCase):
                     exception = e
             
         # Be sure to fail the test after the clean up phase
-        if exception is not None:
-            raise exception
+        assert exception is None, f'exception enountered during the test'
 
 
 if __name__ == "__main__":
