@@ -54,7 +54,7 @@ class OCSStreamTypeChangePythonSampleTests(unittest.TestCase):
         
         # confirm no streams with this search pattern already exist. Fail the test if there are
         existing_streams_matching_pattern = ocs_client.Streams.getStreams(namespace_id=namespace_id, query=stream_search_query)
-        assert len(existing_streams_matching_pattern) == 0, f'streams matching the search pattern {stream_search_query} already exist on the Namespace. Abandonning test to prevent unintentional CRUD operations')
+        assert len(existing_streams_matching_pattern) == 0, f'streams matching the search pattern {stream_search_query} already exist on the Namespace. Abandonning test to prevent unintentional CRUD operations'
 
         num_streams_per_type = 2
         stream_id_template = 'unittest_for_{sds_type}_{i}_conversion'
@@ -62,30 +62,47 @@ class OCSStreamTypeChangePythonSampleTests(unittest.TestCase):
         streams_created = []
         types_created = []
         existing_stream_views = []
+        stream_to_old_type_mappings = {}
 
         # Confirm a few of the TimeIndexed.<datatype> types exist on the target namespace
         existing_type_query = f'TimeIndexed.* AND NOT *.{adapter_name}Quality'
         existing_types = ocs_client.Types.getTypes(namespace_id=namespace_id, query=existing_type_query)
 
-        if len(existing_types < 2):
-            raise Exception('Target namespace needs at least 2 existing TimeIndexed.<data_type> SDS Types to perform this test.')
+        assert len(existing_types) < 2, 'Target namespace needs at least 2 existing TimeIndexed.<data_type> SDS Types to perform this test.'
         
         try:
             # Create two streams per existing 1.1 types
             for i in range(num_streams_per_type): 
                 for e_type in existing_types: 
+                    
+                    # create the stream with the legacy type id, and follow the expected stream name/id format so the sample will find it
                     this_stream = SdsStream(id=stream_id_template.format(sds_type=e_type, i=i), 
                                             type_id=e_type.Id, 
                                             name=stream_id_template.format(sds_type=e_type, i=i))
 
                     ocs_client.Streams.getOrCreateStream(namespace_id=namespace_id, stream=this_stream)
-                    streams_created.append(this_stream)
 
+                    # track that this stream was created by the test so that it's deleted at the end
+                    streams_created.append(this_stream.Id)
+
+                    # keep track of what the old type was for this stream, so that it can be checked later
+                    stream_to_old_type_mappings[this_stream.Id] = e_type.Id
+
+            # Check if the stream views that the sample will create already exist, if they do don't delete them at the end
+            existing_stream_view_query = f'{adapter_name}_* AND *_quality'
+            existing_stream_views = ocs_client.StreamViews.getStreamViews(namespace_id=namespace_id, query=existing_stream_view_query)
+            
+            # convert the list of stream view objects to a set of stream view ids for easier subtraction later
+            existing_stream_view_ids = set()
+            for stream_view in existing_stream_views:
+                existing_stream_view_ids.add(stream_view.Id)
 
             # Check if the new types of TimeIndexed.<datatype>.{adapter_name}Quality exists, if they don't, create it and delete it at the end
             for e_type in existing_types:
                 try:
-                    this_13_type = ocs_client.Types.getType(namespace_id=namespace_id, type_id=f'{e_type.Id}.{adapter_name}Quality')
+                    # we don't need to do anything with this type object, we just need to check if it exists already
+                    _ = ocs_client.Types.getType(namespace_id=namespace_id, type_id=f'{e_type.Id}.{adapter_name}Quality')
+
                 except:
                     # create the type
                     new_13_type = SdsType(id=f'{e_type}.{adapter_name}Quality',
@@ -101,18 +118,11 @@ class OCSStreamTypeChangePythonSampleTests(unittest.TestCase):
                     new_13_type.Properties.append(quality_prop)
 
                     # commit it to OCS
+                    # Note: This call could raise an exception, but it will be good to end the test and not continue on with wrong types, incase they linger on the namespace for some reason
                     ocs_client.Types.getOrCreateType(namespace_id=namespace_id, type=new_13_type)
-                    types_created.append(new_13_type)
 
-            
-
-            # Check if the new stream views exist, if they do don't delete them at the end
-            existing_stream_view_query = f'{adapter_name}_* AND *_quality'
-            existing_stream_views = ocs_client.StreamViews.getStreamViews(namespace_id=namespace_id, query=existing_stream_view_query)
-            
-            existing_stream_view_ids = set()
-            for stream_view in existing_stream_views:
-                existing_stream_view_ids.add(stream_view.Id)
+                    # track that the type was created by the test so that it's deleted at the end
+                    types_created.append(new_13_type.Id)
 
             # run the sample
             try:
@@ -122,17 +132,14 @@ class OCSStreamTypeChangePythonSampleTests(unittest.TestCase):
                 print(f'Exception reported by the sample code: {e}')
                 exception = e
 
-            finally:
-                pass
-
             # check that the streams now have the correctly updated types
-            updated_streams = ocs_client.Streams.getStreams(namespace_id=namespace_id, query=existing_stream_view_query)
-
-            for updated_stream in updated_streams:
-                # stream id pattern contains the old data type, extract it out: 'unittest_for_{sds_type}_{i}_conversion'
-                old_data_type = updated_stream.Name.split('_')[2]
-                expected_new_type = f'{old_data_type}.{adapter_name}Quality'
-                assert updated_stream.TypeId == expected_new_type, f'type conversion failed for {updated_stream.Id}. old type: {old_data_type}, expected type: {expected_new_type}, new type: {updated_stream.TypeId}'
+            for stream_created in streams_created:
+                
+                # look up what the old was, and add .{adapter_name}Quality, such as ".OpcUaQuality", to predict what the new type should be
+                old_sds_type_id = stream_to_old_type_mappings[stream_created]
+                expected_new_type_id = f'{old_sds_type_id}.{adapter_name}Quality'
+                new_sds_type = ocs_client.Streams.getStreamType(namespace_id=namespace_id, stream_id=stream_created)
+                assert new_sds_type.Id == expected_new_type_id, f'type conversion failed for {stream_created}. old type: {old_sds_type_id}, expected type: {expected_new_type_id}, new type: {new_sds_type}'
 
 
         except Exception as e:
@@ -168,13 +175,13 @@ class OCSStreamTypeChangePythonSampleTests(unittest.TestCase):
             # delete the types
             for type_created in types_created:
                 try:
-                    ocs_client.Types.deleteType(namespace_id=namespace_id, type_id=type_created.Id)
+                    ocs_client.Types.deleteType(namespace_id=namespace_id, type_id=type_created)
                 except Exception as e:
-                    print(f'failed to delete type {type_created.Id}. {e}')
+                    print(f'failed to delete type {type_created}. {e}')
                     exception = e
             
         # Be sure to fail the test after the clean up phase
-        assert exception is None, f'exception enountered during the test'
+        assert exception is None, 'exception enountered during the test'
 
 
 if __name__ == "__main__":
