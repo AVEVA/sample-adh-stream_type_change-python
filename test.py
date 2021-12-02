@@ -1,12 +1,10 @@
 """This script tests the OCS Stream Type Change Python sample script"""
 
 import json
-from os import name
 import unittest
 
-from ocs_sample_library_preview.SDS.SdsTypeCode import SdsTypeCode
-from .program import main
-from ocs_sample_library_preview import OCSClient, SdsStream, SdsType, SdsTypeProperty
+from program import main
+from ocs_sample_library_preview import OCSClient, SdsStream, SdsType, SdsTypeProperty, SdsTypeCode
 
 def get_appsettings():
     """Open and parse the appsettings.json file"""
@@ -67,8 +65,9 @@ class OCSStreamTypeChangePythonSampleTests(unittest.TestCase):
         # Confirm a few of the TimeIndexed.<datatype> types exist on the target namespace
         existing_type_query = f'TimeIndexed.* AND NOT *.{adapter_name}Quality'
         existing_types = ocs_client.Types.getTypes(namespace_id=namespace_id, query=existing_type_query)
+        existing_types = [e_type for e_type in existing_types if e_type.Id.startswith('TimeIndexed.')]
 
-        assert len(existing_types) < 2, 'Target namespace needs at least 2 existing TimeIndexed.<data_type> SDS Types to perform this test.'
+        assert len(existing_types) > 2, 'Target namespace needs at least 2 existing TimeIndexed.<data_type> SDS Types to perform this test.'
         
         try:
             # Create two streams per existing 1.1 types
@@ -76,9 +75,9 @@ class OCSStreamTypeChangePythonSampleTests(unittest.TestCase):
                 for e_type in existing_types: 
                     
                     # create the stream with the legacy type id, and follow the expected stream name/id format so the sample will find it
-                    this_stream = SdsStream(id=stream_id_template.format(sds_type=e_type, i=i), 
+                    this_stream = SdsStream(id=stream_id_template.format(sds_type=e_type.Id, i=i), 
                                             type_id=e_type.Id, 
-                                            name=stream_id_template.format(sds_type=e_type, i=i))
+                                            name=stream_id_template.format(sds_type=e_type.Id, i=i))
 
                     ocs_client.Streams.getOrCreateStream(namespace_id=namespace_id, stream=this_stream)
 
@@ -105,8 +104,8 @@ class OCSStreamTypeChangePythonSampleTests(unittest.TestCase):
 
                 except:
                     # create the type
-                    new_13_type = SdsType(id=f'{e_type}.{adapter_name}Quality',
-                                         name=f'{e_type}.{adapter_name}Quality')
+                    new_13_type = SdsType(id=f'{e_type.Id}.{adapter_name}Quality',
+                                         name=f'{e_type.Id}.{adapter_name}Quality')
                     
                     # copy over the two existing properties
                     for prop in e_type.Properties:
@@ -150,9 +149,9 @@ class OCSStreamTypeChangePythonSampleTests(unittest.TestCase):
             # delete the streams
             for stream_created in streams_created:
                 try:
-                    ocs_client.Streams.deleteStream(namespace_id=namespace_id, stream_id=stream_created.Id)
+                    ocs_client.Streams.deleteStream(namespace_id=namespace_id, stream_id=stream_created)
                 except Exception as e:
-                    print(f'failed to delete stream {stream_created.Id}. {e}')
+                    print(f'failed to delete stream {stream_created}. {e}')
                     exception = e
 
             # figure out which stream views were created by the sample
