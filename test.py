@@ -105,9 +105,11 @@ class OCSStreamTypeChangePythonSampleTests(unittest.TestCase):
                 except:
                     # create the type
                     new_13_type = SdsType(id=f'{e_type.Id}.{adapter_name}Quality',
-                                         name=f'{e_type.Id}.{adapter_name}Quality')
+                                            sds_type_code=SdsTypeCode.Object,
+                                            name=f'{e_type.Id}.{adapter_name}Quality')
                     
                     # copy over the two existing properties
+                    new_13_type.Properties = []
                     for prop in e_type.Properties:
                         new_13_type.Properties.append(prop)
                     

@@ -17,7 +17,7 @@ def get_appsettings():
 
     return appsettings
 
-def generate_adapter_upgrade_mappings(adapter_name, ocs_client, namespace_id):
+def generate_adapter_upgrade_mappings(adapter_name, ocs_client, namespace_id, test):
     """This function takes in an adapter name (such as 'OpcUa'), generates the necessary stream views,
     and returns a mapping table for the existing type to the stream view that maps it to the new type.
     This function is specific to the adapter version 1.1 to 1.2 upgrade use case"""
@@ -28,18 +28,26 @@ def generate_adapter_upgrade_mappings(adapter_name, ocs_client, namespace_id):
     type_search_query = f'TimeIndexed.* AND *.{adapter_name}Quality'
     new_types = ocs_client.Types.getTypes(namespace_id, query=type_search_query)
 
-    # Before creating the stream views, user confirmation is requested
-    print(f'Found {len(new_types)} types that are potentially going to be have stream views created to map existing types to them.')
-    response = input('Would you like to see their IDs? (y/n): ')
-    print()
+    if test:
+        # If this script is being E2E tested, presume the user input to be y
+        print('This script is being tested and will not pause for user confirmation.')
+        response = 'y'
 
-    if response.lower() == 'y' or response.lower() == 'yes':
-        for new_type in new_types:
-            print(new_type.Id)
+    else: 
+        # Before creating the stream views, user confirmation is requested
+        print(f'Found {len(new_types)} types that are potentially going to be have stream views created to map existing types to them.')
+        response = input('Would you like to see their IDs? (y/n): ')
+        print()
 
-    print()
-    response = input('Would you like to create the stream views? (y/n): ')
-    print()
+        if response.lower() == 'y' or response.lower() == 'yes':
+            for new_type in new_types:
+                print(new_type.Id)
+
+        print()
+        response = input('Would you like to create the stream views? (y/n): ')
+        print()
+    
+    
 
     if response.lower() == 'y' or response.lower() == 'yes':
 
@@ -98,25 +106,31 @@ def main(test=False):
         # Note: the stream views will need to be created first, whether programmatically or through the OCS portal
 
         ### Adapter 1.1 to 1.2 upgrade use case ###
-        type_to_stream_view_mappings = generate_adapter_upgrade_mappings(appsettings.get('AdapterName'), ocs_client, namespace_id)
+        type_to_stream_view_mappings = generate_adapter_upgrade_mappings(appsettings.get('AdapterName'), ocs_client, namespace_id, test)
 
         # Get streams in the namespace
         streams = ocs_client.Streams.getStreams(namespace_id, query=stream_search_query)
 
-        # Before changing the streams, user confirmation is requested
-        print()
-        print(f'Found {len(streams)} streams that are potentially going to be converted using stream view.')
-        print()
-        response = input('Would you like to see their IDs? (y/n): ')
-        print()
+        if test:
+            # If this script is being E2E tested, presume the user input to be y
+            print('This script is being tested and will not pause for user confirmation.')
+            response = 'y'
 
-        if response.lower() == 'y' or response.lower() == 'yes':
-            for stream in streams:
-                print(f'ID: {stream.Id} Name: {stream.Name}')
+        else: 
+            # Before changing the streams, user confirmation is requested
+            print()
+            print(f'Found {len(streams)} streams that are potentially going to be converted using stream view.')
+            print()
+            response = input('Would you like to see their IDs? (y/n): ')
+            print()
 
-        print()
-        response = input('Would you like to continue with the type conversions? (y/n): ')
-        print()
+            if response.lower() == 'y' or response.lower() == 'yes':
+                for stream in streams:
+                    print(f'ID: {stream.Id} Name: {stream.Name}')
+
+            print()
+            response = input('Would you like to continue with the type conversions? (y/n): ')
+            print()
 
         if response.lower() == 'y' or response.lower() == 'yes':
 
