@@ -101,6 +101,45 @@ To run this example from the command line once the `appsettings.json` is configu
 python program.py
 ```
 
+## Testing the sample
+
+The end to end test for this sample simulates an existing adapter being upgraded from 1.2 to 1.3, which is the most common expected use case of this sample. 
+
+The testing procedure is as follows:
+
+1. Find a list of existing Time.Indexed.[DataType] SDS Types
+    - The test asserts that there are at least two in order to test the looping capabilities of the script
+1. For each type, create two streams with a specific naming pattern that should be safe from unintentional collisions
+    - The test first checks this assumption, and asserts that there are no existing streams matching the testing syntax
+1. The old types and the stream names are recorded together in a dictionary for later look ups
+1. Existing Stream Views that match the sample's Stream View Id syntax are searched for so that they are not deleted at the end of the test
+    - Since the sample is creating the stream views, the test framework will be unaware of which ones were created by the sample. Recording them at this step is necessary to not over-delete.
+1. To simulate the installation of a version 1.3 PI Adapter, the corresponding TimeIndexed.[DataType].[AdapterName]Quality SDS Types are created. 
+    - The sample assumes these are already created, so the test must create them ahead of time.
+    - The test keeps track of anything created as to not over-delete at the end
+1. The sample is run, which changes the types of the streams that were previously created
+1. Each stream is checked to ensure that its new type is its old type with `[AdapterName]Quality` appended to the end.
+1. The created streams are deleted
+1. The streams views created by the sample are deleted
+1. The types created by the sample are deleted
+1. Any exception encountered along the way will trigger a failed test
+
+### Test Requirements
+
+In order to execute the test against a particular OCS namespace, the following assertions must be true:
+- The namespace already has two or more TimeIndexed.[DataType] SDS Types. 
+- The namespace does not already have any streams that match the testing syntax of `e2etest_for_{sds_type}_{i}_conversion`
+- The stream search pattern in appsettings matches the pattern for testing syntax. 
+    - This is necessary as the sample will pull the search string from the `appsettings.json` file but the end to end test is creating strings with a hardcoded syntax. They must match before the test will execute
+
+### Running the test
+
+To run the end to end test from the command line once the `appsettings.json` is configured, run
+
+```shell
+python test.py
+```
+
 ---
 
 Tested against Python 3.9.1

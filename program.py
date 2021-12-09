@@ -84,7 +84,7 @@ def main(test=False):
 
         # Read configuration from appsettings.json and create the OCS client object
         print()
-        print('Step 1: Authenticate against OCS')
+        print('Authenticating to OCS...')
         ocs_client = OCSClient(appsettings.get('ApiVersion'),
                                 appsettings.get('TenantId'),
                                 appsettings.get('Resource'),

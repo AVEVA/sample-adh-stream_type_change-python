@@ -49,7 +49,7 @@ jobs:
       - name: AdapterName
         value: 'OpcUa'
       - name: StreamSearchPattern
-        value: 'unittest_for_* AND *_conversion'
+        value: 'e2etest_for_* AND *_conversion'
     steps:
       - template: '/miscellaneous/build_templates/appsettings.yml@templates'
         parameters:

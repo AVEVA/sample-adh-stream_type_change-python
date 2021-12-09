@@ -47,7 +47,7 @@ class OCSStreamTypeChangePythonSampleTests(unittest.TestCase):
         # Fail the test now if the sample is about to use a stream search pattern that doesn't match the stream_id_template that the unit test will use below.
         # This approach is safer than running the test against any arbitrary search pattern, and letting the test framework determine which streams were new and which were exsiting
         # NOTE: changing this query string requires a change of the successful type change assertion further down the script
-        expected_stream_search_query = 'unittest_for_* AND *_conversion'
+        expected_stream_search_query = 'e2etest_for_* AND *_conversion'
         assert expected_stream_search_query.lower() == stream_search_query.lower(), f'stream search pattern did not matched expected value of {expected_stream_search_query}. Abandonning test to prevent unintentional CRUD operations'
         
         # confirm no streams with this search pattern already exist. Fail the test if there are
@@ -55,7 +55,7 @@ class OCSStreamTypeChangePythonSampleTests(unittest.TestCase):
         assert len(existing_streams_matching_pattern) == 0, f'streams matching the search pattern {stream_search_query} already exist on the Namespace. Abandonning test to prevent unintentional CRUD operations'
 
         num_streams_per_type = 2
-        stream_id_template = 'unittest_for_{sds_type}_{i}_conversion'
+        stream_id_template = 'e2etest_for_{sds_type}_{i}_conversion'
 
         streams_created = []
         types_created = []
