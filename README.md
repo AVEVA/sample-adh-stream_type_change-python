@@ -103,7 +103,7 @@ python program.py
 
 ## Testing the sample
 
-The end to end test for this sample simulates an existing adapter being upgraded from 1.2 to 1.3, which is the most common expected use case of this sample. 
+The end to end test for this sample simulates an existing adapter being upgraded from 1.1 to 1.2, which is the most common expected use case of this sample. 
 
 The testing procedure is as follows:
 
@@ -114,7 +114,7 @@ The testing procedure is as follows:
 1. The old types and the stream names are recorded together in a dictionary for later look ups
 1. Existing Stream Views that match the sample's Stream View Id syntax are searched for so that they are not deleted at the end of the test
     - Since the sample is creating the stream views, the test framework will be unaware of which ones were created by the sample. Recording them at this step is necessary to not over-delete.
-1. To simulate the installation of a version 1.3 PI Adapter, the corresponding TimeIndexed.[DataType].[AdapterName]Quality SDS Types are created. 
+1. To simulate the installation of a version 1.2 PI Adapter, the corresponding TimeIndexed.[DataType].[AdapterName]Quality SDS Types are created. 
     - The sample assumes these are already created, so the test must create them ahead of time.
     - The test keeps track of anything created as to not over-delete at the end
 1. The sample is run, which changes the types of the streams that were previously created
