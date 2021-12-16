@@ -19,7 +19,7 @@ def get_appsettings():
 
 def affirmative_response(response):
     affirmative_responses = ['y', 'yes']
-    return response.lower() in affirmative_response
+    return response.lower() in affirmative_responses
 
 def generate_adapter_upgrade_mappings(adapter_name, ocs_client, namespace_id, test):
     """This function takes in an adapter name (such as 'OpcUa'), generates the necessary stream views,
