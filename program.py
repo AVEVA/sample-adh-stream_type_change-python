@@ -1,4 +1,6 @@
+import datetime
 import json
+import logging
 import traceback
 from ocs_sample_library_preview import (OCSClient, Types, Streams, StreamViews, SdsStreamView)
 
@@ -11,15 +13,16 @@ def get_appsettings():
             appsettings = json.load(f)
 
     except Exception as error:
-        print(f'Error: {str(error)}')
-        print(f'Could not open/read appsettings.json')
+        logging.error(f'Error: {str(error)}')
+        logging.error(f'Could not open/read appsettings.json')
         exit()
 
     return appsettings
 
 def affirmative_response(response):
+    logging.debug(f'checking user response of {response}')
     affirmative_responses = ['y', 'yes']
-    return response.lower() in affirmative_response
+    return response.lower() in affirmative_responses
 
 def generate_adapter_upgrade_mappings(adapter_name, ocs_client, namespace_id, test):
     """This function takes in an adapter name (such as 'OpcUa'), generates the necessary stream views,
@@ -34,25 +37,28 @@ def generate_adapter_upgrade_mappings(adapter_name, ocs_client, namespace_id, te
 
     if test:
         # If this script is being E2E tested, presume the user input to be y
-        print('This script is being tested and will not pause for user confirmation.')
         response = 'y'
+        logging.debug(f'Automated test will begin stream view creation without prompting the user, assuming a response of {response}.')
+        
 
     else: 
         # Before creating the stream views, user confirmation is requested
+        logging.info(f'Found {len(new_types)} types that are potentially going to be have stream views created to map existing types to them.')
         print(f'Found {len(new_types)} types that are potentially going to be have stream views created to map existing types to them.')
+        logging.debug(f'Prompting user whether they would like to see the list of new type IDs.')
         response = input('Would you like to see their IDs? (y/n): ')
         print()
 
         if affirmative_response(response):
             for new_type in new_types:
+                logging.info(new_type.Id)
                 print(new_type.Id)
 
         print()
+        logging.debug(f'Prompting user whether they would like to continue with the stream view creations.')
         response = input('Would you like to create the stream views? (y/n): ')
         print()
     
-    
-
     if affirmative_response(response):
 
         for new_type in new_types:
@@ -66,16 +72,16 @@ def generate_adapter_upgrade_mappings(adapter_name, ocs_client, namespace_id, te
             this_stream_view_id = f'{adapter_name}_{data_type}_quality'
             this_stream_view = SdsStreamView(id=this_stream_view_id, source_type_id=existing_type_id, target_type_id=new_type.Id)
 
-            print(f'Creating streamview with id {this_stream_view_id} mapping {existing_type_id} to {new_type.Id}...')
+            logging.info(f'Creating streamview with id {this_stream_view_id} mapping {existing_type_id} to {new_type.Id}...')
             this_stream_view = ocs_client.StreamViews.getOrCreateStreamView(namespace_id, this_stream_view)
 
             # add the streamview id to the mappings list under the key of the existing type id
             mapping[existing_type_id] = this_stream_view.Id
         
-        print('Done creating stream views.')
+        logging.info('Done creating stream views.')
 
     else:
-        print('Returning blank mapping table')
+        logging.info('Returning blank mapping table')
         
     return mapping
 
@@ -87,8 +93,7 @@ def main(test=False):
         appsettings = get_appsettings()
 
         # Read configuration from appsettings.json and create the OCS client object
-        print()
-        print('Authenticating to OCS...')
+        logging.debug('Authenticating to OCS...')
         ocs_client = OCSClient(appsettings.get('ApiVersion'),
                                 appsettings.get('TenantId'),
                                 appsettings.get('Resource'),
@@ -117,28 +122,32 @@ def main(test=False):
 
         if test:
             # If this script is being E2E tested, presume the user input to be y
-            print('This script is being tested and will not pause for user confirmation.')
             response = 'y'
+            logging.debug(f'Automated test will begin type conversion without prompting the user, assuming a response of {response}.')
 
         else: 
             # Before changing the streams, user confirmation is requested
             print()
+            logging.info(f'Found {len(streams)} streams that are potentially going to be converted using stream view.')
             print(f'Found {len(streams)} streams that are potentially going to be converted using stream view.')
             print()
+            logging.debug(f'Prompting user whether they would like to see the list of stream IDs.')
             response = input('Would you like to see their IDs? (y/n): ')
             print()
 
             if affirmative_response(response):
                 for stream in streams:
+                    logging.info(f'ID: {stream.Id} Name: {stream.Name}')
                     print(f'ID: {stream.Id} Name: {stream.Name}')
 
             print()
+            logging.debug(f'Prompting user whether they would like to continue with the stream type edits.')
             response = input('Would you like to continue with the type conversions? (y/n): ')
             print()
 
         if affirmative_response(response):
 
-            print('Processing streams...')
+            logging.info('Processing streams...')
             
             # Keep track of the streams processed and skipped
             converted_streams = 0
@@ -148,26 +157,23 @@ def main(test=False):
 
                 # Look for the stream's existing type in the mappings table. If it's there, apply the stream view
                 if stream.TypeId in type_to_stream_view_mappings:
-                    print(f'Changing type of {stream.Id} away from {stream.TypeId} using steamview id {type_to_stream_view_mappings[stream.TypeId]}...')
+                    logging.info(f'Changing type of {stream.Id} away from {stream.TypeId} using steamview id {type_to_stream_view_mappings[stream.TypeId]}...')
                     ocs_client.Streams.updateStreamType(namespace_id, stream_id=stream.Id, stream_view_id=type_to_stream_view_mappings[stream.TypeId])
                     converted_streams += 1
 
                 # If it's not, skip it and notify the user why it wasn't processed
                 else:
-                    print(f'Skipped {stream.Id} because it has a type of {stream.TypeId}, which is not in the mappings table.')
+                    logging.info(f'Skipped {stream.Id} because it has a type of {stream.TypeId}, which is not in the mappings table.')
                     skipped_streams += 1
                             
-            print()
-            print(f'Operation completed. Successfully converted {converted_streams} streams and skipped {skipped_streams} streams.')
+            logging.info(f'Operation completed. Successfully converted {converted_streams} streams and skipped {skipped_streams} streams.')
 
         else:
-            print('Exiting. No transformation is going to happen.')
+            logging.info('Exiting. No transformation is going to happen.')
 
     except Exception as error:
-        print(f'Encountered Error: {error}')
-        print()
+        logging.error(f'Encountered Error: {error}')
         traceback.print_exc()
-        print()
         exception = error
 
     finally:
@@ -176,4 +182,25 @@ def main(test=False):
 
 
 if __name__ == '__main__':
-    main()
+    
+    ## Logging Config ##
+
+    # This sample is configured to log a record of the CRUD operations as 'Info' level, and all other operations as 'Debug'
+    #level = logging.DEBUG   # use to troubleshoot the sample
+    level = logging.INFO     # use for record keeping
+
+    # specify the log file if necessary (append if already created)
+    log_file_name = 'logfile.txt'
+
+    # Set up the logger
+    logging.basicConfig(filename=log_file_name, encoding='utf-8', level=level, datefmt='%Y-%m-%d %H:%M:%S', format= '%(asctime)s %(module)16s,line: %(lineno)4d %(levelname)8s | %(message)s')
+    logging.info('Starting Stream Type change sample')
+
+    try:
+        # Run the sample
+        main()
+    
+        # No except block is necessary as exceptions will be logged by the sample itself
+    finally:
+        # Write a message that the logger is done.
+        logging.info('Stream Type change sample completed')
