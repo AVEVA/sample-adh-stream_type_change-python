@@ -17,6 +17,10 @@ def get_appsettings():
 
     return appsettings
 
+def affirmative_response(response):
+    affirmative_responses = ['y', 'yes']
+    return response.lower() in affirmative_response
+
 def generate_adapter_upgrade_mappings(adapter_name, ocs_client, namespace_id, test):
     """This function takes in an adapter name (such as 'OpcUa'), generates the necessary stream views,
     and returns a mapping table for the existing type to the stream view that maps it to the new type.
@@ -39,7 +43,7 @@ def generate_adapter_upgrade_mappings(adapter_name, ocs_client, namespace_id, te
         response = input('Would you like to see their IDs? (y/n): ')
         print()
 
-        if response.lower() == 'y' or response.lower() == 'yes':
+        if affirmative_response(response):
             for new_type in new_types:
                 print(new_type.Id)
 
@@ -49,7 +53,7 @@ def generate_adapter_upgrade_mappings(adapter_name, ocs_client, namespace_id, te
     
     
 
-    if response.lower() == 'y' or response.lower() == 'yes':
+    if affirmative_response(response):
 
         for new_type in new_types:
 
@@ -124,7 +128,7 @@ def main(test=False):
             response = input('Would you like to see their IDs? (y/n): ')
             print()
 
-            if response.lower() == 'y' or response.lower() == 'yes':
+            if affirmative_response(response):
                 for stream in streams:
                     print(f'ID: {stream.Id} Name: {stream.Name}')
 
@@ -132,7 +136,7 @@ def main(test=False):
             response = input('Would you like to continue with the type conversions? (y/n): ')
             print()
 
-        if response.lower() == 'y' or response.lower() == 'yes':
+        if affirmative_response(response):
 
             print('Processing streams...')
             
@@ -160,7 +164,7 @@ def main(test=False):
             print('Exiting. No transformation is going to happen.')
 
     except Exception as error:
-        print((f'Encountered Error: {error}'))
+        print(f'Encountered Error: {error}')
         print()
         traceback.print_exc()
         print()

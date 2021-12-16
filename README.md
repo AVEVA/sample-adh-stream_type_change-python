@@ -78,7 +78,7 @@ The sample is configured by modifying the file [appsettings.placeholder.json](ap
 
 ### Configuring appsettings.json
 
-OSIsoft Cloud Services is secured by obtaining tokens from its identity endpoint. Client credentials clients provide a client application identifier and an associated secret (or key) that are authenticated against the token endpoint. You must replace the placeholders in your `appsettings.json` file with the authentication-related values from your tenant and a client-credentials client created in your OCS tenant.
+OSIsoft Cloud Services is secured by obtaining tokens from its identity endpoint. Client-credentials clients provide a client application identifier and an associated secret (or key) that are authenticated against the token endpoint. You must replace the placeholders in your `appsettings.json` file with the authentication-related values from your tenant and a client-credentials client created in your OCS tenant.
 
 ```json
 {
