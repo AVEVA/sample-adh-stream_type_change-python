@@ -24,15 +24,29 @@ def affirmative_response(response):
     affirmative_responses = ['y', 'yes']
     return response.lower() in affirmative_responses
 
-def generate_adapter_upgrade_mappings(adapter_name, ocs_client, namespace_id, test):
-    """This function takes in an adapter name (such as 'OpcUa'), generates the necessary stream views,
+def generate_adapter_upgrade_mappings(adapter_type, ocs_client, namespace_id, test):
+    """This function takes in an adapter type (such as 'OpcUa'), generates the necessary stream views,
     and returns a mapping table for the existing type to the stream view that maps it to the new type.
     This function is specific to the adapter version 1.1 to 1.2 upgrade use case"""
 
+    # Some adapters have known types that will not be migratable, for example DNP3. These should be skipped
+    tested_adapter_types = {'opcua'}
+    incompatible_adapter_types = {'dnp3'}
+
+    # If a known imcompatible adapter is attempted, stop the script and log an error
+    if adapter_type.lower() in incompatible_adapter_types:
+        logging.error(f'The adapter type of {adapter_type} is known to be incompatible with this script. Please perform the type changes manually or contact support for assistance.')
+        raise Exception(f'Incompatible adapter type of {adapter_type} detected')
+
+    # If the specified adapter type is not known to work or known to fail, warn and continue. This could be a typo in the settings file, or a new untested adapter type
+    if adapter_type.lower() not in tested_adapter_types:
+        logging.warning(f'Encountered untested adapter type of {adapter_type}. The konwn tested adapter types are {", ".join(tested_adapter_types)}. If this was unintended, please rerun the script with the correct adapter type.')
+
+
     mapping = {}
     
-    # Find types created by the adapter upgrade (TimeIndexed.<datatype>.<adaptername>Quality):
-    type_search_query = f'TimeIndexed.* AND *.{adapter_name}Quality'
+    # Find types created by the adapter upgrade (TimeIndexed.<datatype>.<AdapterType>Quality):
+    type_search_query = f'TimeIndexed.* AND *.{adapter_type}Quality'
     new_types = ocs_client.Types.getTypes(namespace_id, query=type_search_query)
 
     if test:
@@ -64,17 +78,33 @@ def generate_adapter_upgrade_mappings(adapter_name, ocs_client, namespace_id, te
         for new_type in new_types:
 
             # Extract out the data type from the type name, and infer the existing type name
-            data_type = new_type.Id.split('.')[1] # 0 = 'TimeIndexed'; 1 = <data type>; 2 = '<adapter_name>Quality
-            existing_type_id = f'TimeIndexed.{data_type}'
+            type_name_parts = new_type.Id.split('.')
+            
+            # The 'simple' types (eg. TimeIndexed.Int32.OpcUaQuality) are three pieces: 0 = 'TimeIndexed'; 1 = <data type>; 2 = '<adapter_type>Quality
+            # Others, such as 'enum' types are more pieces and cannot be migrated with this script
+            if len(type_name_parts) > 3:
+                logging.warning(f'Non-simple type detected. No streams will be automatically migrated to {new_type}...')
+                logging.warning(f'...If possible, the existing steams will be converted to their corresponding integer quality type.')
+                continue
+
+            # The version 1.1 SDS Type ID is the first two parts joined back together (eg. TimeIndexed.Int32.OpcUaQuality -> TimeIndexed.Int32)
+            existing_type_id = '.'.join(type_name_parts[:2])
+
+            # The data type is the second piece of 0 = 'TimeIndexed'; 1 = <data type>; 2 = '<adapter_type>Quality
+            data_type = type_name_parts[1]
 
             # Create the stream views from existing type to new type
             # Note: Explicit property mappings are not required for this conversion because OCS can infer them from the property names
-            this_stream_view_id = f'{adapter_name}_{data_type}_quality'
+            this_stream_view_id = f'{adapter_type}_{data_type}_quality'
             this_stream_view = SdsStreamView(id=this_stream_view_id, source_type_id=existing_type_id, target_type_id=new_type.Id)
 
             logging.info(f'Creating streamview with id {this_stream_view_id} mapping {existing_type_id} to {new_type.Id}...')
-            this_stream_view = ocs_client.StreamViews.getOrCreateStreamView(namespace_id, this_stream_view)
-
+            try:
+                this_stream_view = ocs_client.StreamViews.getOrCreateStreamView(namespace_id, this_stream_view)
+            except Exception as error:
+                # Log the error, but don't raise the exception. This failure is only a problem if it causes a stream to fail to convert, which will be caught later as a separate exception
+                logging.error(f'Encountered error while creating stream view: {error}')
+                
             # add the streamview id to the mappings list under the key of the existing type id
             mapping[existing_type_id] = this_stream_view.Id
         
@@ -115,7 +145,7 @@ def main(test=False):
         # Note: the stream views will need to be created first, whether programmatically or through the OCS portal
 
         ### Adapter 1.1 to 1.2 upgrade use case ###
-        type_to_stream_view_mappings = generate_adapter_upgrade_mappings(appsettings.get('AdapterName'), ocs_client, namespace_id, test)
+        type_to_stream_view_mappings = generate_adapter_upgrade_mappings(appsettings.get('AdapterType'), ocs_client, namespace_id, test)
 
         # Get streams in the namespace
         streams = ocs_client.Streams.getStreams(namespace_id, query=stream_search_query)
@@ -152,24 +182,37 @@ def main(test=False):
             # Keep track of the streams processed and skipped
             converted_streams = 0
             skipped_streams = 0
+            failed_streams = 0
 
             for stream in streams:
 
                 # Look for the stream's existing type in the mappings table. If it's there, apply the stream view
                 if stream.TypeId in type_to_stream_view_mappings:
                     logging.info(f'Changing type of {stream.Id} away from {stream.TypeId} using steamview id {type_to_stream_view_mappings[stream.TypeId]}...')
-                    ocs_client.Streams.updateStreamType(namespace_id, stream_id=stream.Id, stream_view_id=type_to_stream_view_mappings[stream.TypeId])
-                    converted_streams += 1
+                    try:
+                        ocs_client.Streams.updateStreamType(namespace_id, stream_id=stream.Id, stream_view_id=type_to_stream_view_mappings[stream.TypeId])
+                        converted_streams += 1
+                    except Exception as error:
+                        logging.error(f'Encountered error while converting stream: {error}')
+                        exception = error
+                        failed_streams += 1
 
                 # If it's not, skip it and notify the user why it wasn't processed
                 else:
-                    logging.info(f'Skipped {stream.Id} because it has a type of {stream.TypeId}, which is not in the mappings table.')
+                    logging.warning(f'Skipped {stream.Id} because it has a type of {stream.TypeId}, which is not in the mappings table. It will need to be migrated separately.')
                     skipped_streams += 1
-                            
-            logging.info(f'Operation completed. Successfully converted {converted_streams} streams and skipped {skipped_streams} streams.')
+
+            # Log the final tallies of each counter  
+            logging.info(f'Operation completed. Successfully converted {converted_streams} streams.')
+            
+            # If a stream failed or was skipped, log it was a warning. Otherwise, log it as info
+            if failed_streams > 0 or skipped_streams > 0:
+                logging.warning(f'Operation incomplete. Failed to convert {failed_streams} streams and skipped {skipped_streams} streams.')
+            else:
+                logging.info(f'No streams failed to convert or were skipped.')
 
         else:
-            logging.info('Exiting. No transformation is going to happen.')
+            logging.info('Exiting. No transformation will be attempted.')
 
     except Exception as error:
         logging.error(f'Encountered Error: {error}')

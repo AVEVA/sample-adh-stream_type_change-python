@@ -46,7 +46,7 @@ jobs:
       name: 00-OSIManaged-Containers
       demands: Agent.OS -equals $(agentOS)
     variables:
-      - name: AdapterName
+      - name: AdapterType
         value: 'OpcUa'
       - name: StreamSearchPattern
         value: 'e2etest_for_* AND *_conversion'

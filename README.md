@@ -30,7 +30,7 @@ The processing steps of the sample are as follows:
 
 ## Using this sample when upgrading an adapter from version 1.1 to 1.2
 
-The sample's specific logic as written will change the Types of PI Adapter streams from the 1.1 versioned Types of `TimeIndexed.<data_type>` (eg: `TimeIndexed.Double`) to the 1.2 versioned Types of `TimeIndexed.<data_type>.<adapter_name>Quality` (eg: `TimeIndexed.Double.OpcUaQuality`) to ingress the quality value where applicable. 
+The sample's specific logic as written will change the Types of PI Adapter streams from the 1.1 versioned Types of `TimeIndexed.<data_type>` (eg: `TimeIndexed.Double`) to the 1.2 versioned Types of `TimeIndexed.<data_type>.<adapter_type>Quality` (eg: `TimeIndexed.Double.OpcUaQuality`) to ingress the quality value where applicable. 
 
 The steps to run this sample as an adapter stream type upgrade utility are as follows:
 
@@ -56,7 +56,7 @@ This section of [program.py](program.py) covers the creation and/or definition o
 # Note: the stream views will need to be created first, whether programmatically or through the OCS portal
 
 ### Adapter 1.1 to 1.2 upgrade use case ###
-type_to_stream_view_mappings = generate_adapter_upgrade_mappings(appsettings.get('AdapterName'), ocs_client)
+type_to_stream_view_mappings = generate_adapter_upgrade_mappings(appsettings.get('AdapterType'), ocs_client)
 ```
 
 Alternatively, another function could be created to programmatically generate the necessary Stream Views, and then mappings table. For assistance with the programmatic creation of Stream Views and explicitly mapping properties from one Type to another Type, see the [OCS Waveform Python sample](https://github.com/osisoft/sample-ocs-waveform-python).
@@ -88,7 +88,7 @@ OSIsoft Cloud Services is secured by obtaining tokens from its identity endpoint
   "NamespaceId": "REPLACE_WITH_NAMESPACE_ID",
   "ClientId": "REPLACE_WITH_CLIENT_ID",
   "ClientSecret": "REPLACE_WITH_CLIENT_SECRET",
-  "AdapterName": "REPLACE_WITH_ADAPTER_NAME",
+  "AdapterType": "REPLACE_WITH_ADAPTER_TYPE",
   "StreamSearchPattern": "REPLACE_WITH_STREAM_SEARCH_PATTERN"
 }
 ```
@@ -114,11 +114,11 @@ The testing procedure is as follows:
 1. The old types and the stream names are recorded together in a dictionary for later look ups
 1. Existing Stream Views that match the sample's Stream View Id syntax are searched for so that they are not deleted at the end of the test
     - Since the sample is creating the stream views, the test framework will be unaware of which ones were created by the sample. Recording them at this step is necessary to not over-delete.
-1. To simulate the installation of a version 1.2 PI Adapter, the corresponding TimeIndexed.[DataType].[AdapterName]Quality SDS Types are created. 
+1. To simulate the installation of a version 1.2 PI Adapter, the corresponding TimeIndexed.[DataType].[AdapterType]Quality SDS Types are created. 
     - The sample assumes these are already created, so the test must create them ahead of time.
     - The test keeps track of anything created as to not over-delete at the end
 1. The sample is run, which changes the types of the streams that were previously created
-1. Each stream is checked to ensure that its new type is its old type with `[AdapterName]Quality` appended to the end.
+1. Each stream is checked to ensure that its new type is its old type with `[AdapterType]Quality` appended to the end.
 1. The created streams are deleted
 1. The streams views created by the sample are deleted
 1. The types created by the sample are deleted
