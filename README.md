@@ -41,6 +41,39 @@ The steps to run this sample as an adapter stream type upgrade utility are as fo
 1. Run the sample
 1. Observe the output and respond whether to continue with the stream view creations and type changes
 
+### Enumeration Type Handling
+
+[Enumeration data types](https://docs.osisoft.com/bundle/pi-adapter-opc-ua/page/overview/principles-of-operation.html#enumeration-types) have been introduced in the 1.2 version of some PI Adapters. For these enum streams, the Adapter will send create the enum type in the OCS Namespace, but **the script will not be able to migrate the stream to these types**. 
+- The existing streams will currently be configured in OCS as an integer type, and it is not possible for the sample to detect whether these streams should migrate to the same integer type with the quality flag, or migrate to an enum type. 
+- The script will therefore attempt to migrate them to the same integer type with the quality flag (which should immediately begin the data ingress of the quality data)
+    - eg. `TimeIndexed.UInt32` -> `TimeIndexed.UInt32.OpcUaQuality`
+- Since the sample will not create any new types, if the Adapter instance does not have any streams writing to the integer type with the quality flag, but they are all attempting to write to enum types, then this partial migration will not be possible. 
+
+### Migrating Enum types manually
+
+To migrate the enum type streams in OCS, follow the steps below for `Adapting this sample to other use cases.` While going through that section, use these steps for this specific use case
+1. Manually create the stream view in the OCS portal for the existing integer Type to a specific enum Type.
+1. Add an entry to the `type_to_stream_view_mappings` dictionary for the existing integer Type to the Stream View ID created in the previous step.
+1. Set the `StreamSearchPattern` to match **only** these integer Typed Streams being matched to this Specific enum Type.
+1. Run the sample to convert these streams
+1. Repeat the previous steps with each of the enum Types necessary, repeatedly changing the `StreamSearchPattern` each time to match only the desired streams on each pass.
+
+### Tested and Untested Adapter Types
+
+This sample performs the specific action of migrating Streams from the version 1.1 PI Adapters to the version 1.2 PI Adapters. In each specific Adapter's case, there might be exceptions that do not work with this sample. Sometimes these can be worked around (eg: the enum types with the PI Adapter for OPC UA), and other times these exceptions are too impactful to use the sample at all. 
+
+Within the `generate_adapter_upgrade_mappings` function, the specified `adapter_type` is checked against a list of tested and incompatible adapter types.
+- If an incompatible adapter type is encountered, the sample will exit with an error message. 
+- If the adapter type is neither tested nor known to be incompatible, a warning is logged and the script continues.
+    - This is could a case where a new adapter type is being used, we welcome feedback to be sent to `samples@osisoft.com`
+    - This also could be a case of the adapter type having a typo and not matching an actual adapter type (such as `OpcUa`, `DNP3`). In this case, nothing will migrate because no new version 1.2 Adapter SDS Types will be detected, and no action will be performed.
+
+Over time, these sets will be expanded to reflect more adapter types. At the current moment, these are the known tests:
+```python
+tested_adapter_types = {'opcua'}
+incompatible_adapter_types = {'dnp3'}
+```
+
 ## Adapting this sample to other use cases
 
 Although this sample is built to be able to change SDS Types in a specific use case, it can be adapted to fit a more generic use case. The type conversion only require a dictionary mapping a Stream's existing Type to the ID of the Stream View that maps this Type to a new Type. 
@@ -82,15 +115,33 @@ OSIsoft Cloud Services is secured by obtaining tokens from its identity endpoint
 
 ```json
 {
-  "Resource": "https://dat-b.osisoft.com",
-  "ApiVersion": "v1",
-  "TenantId": "REPLACE_WITH_TENANT_ID",
-  "NamespaceId": "REPLACE_WITH_NAMESPACE_ID",
-  "ClientId": "REPLACE_WITH_CLIENT_ID",
-  "ClientSecret": "REPLACE_WITH_CLIENT_SECRET",
-  "AdapterType": "REPLACE_WITH_ADAPTER_TYPE",
-  "StreamSearchPattern": "REPLACE_WITH_STREAM_SEARCH_PATTERN"
+  "Resource": "https://dat-b.osisoft.com",                          # This is the base OCS URL being used
+  "ApiVersion": "v1",                                               # The API version should most likely be kept at v1
+  "TenantId": "REPLACE_WITH_TENANT_ID",                             # The Tenant that is being written to by the Adapter
+  "NamespaceId": "REPLACE_WITH_NAMESPACE_ID",                       # The Namespace ID that is being written to by the Adapter
+  "ClientId": "REPLACE_WITH_CLIENT_ID",                             # The ID of a client with the necessary permissions
+  "ClientSecret": "REPLACE_WITH_CLIENT_SECRET",                     # The secret of this client
+  "AdapterType": "REPLACE_WITH_ADAPTER_TYPE",                       # eg. OpcUa, DNP3. The SDS Types will contain this string
+  "StreamSearchPattern": "REPLACE_WITH_STREAM_SEARCH_PATTERN"       # A search string to find only the streams to be migrated
 }
+```
+
+## Logging
+
+This sample uses the [Python logging](https://docs.python.org/3/library/logging.html) library to create a log file of `Debug`, `Info`, `Warning`, and `Error` messages. Since CRUD operations are being performed against OCS, it can be important to have a record of these oeprations. 
+
+The default log file name is `logfile.txt` and the default log level is `INFO`. These are configurable at the bottom of [program.py](program.py) where the logging is setup
+```python
+level = logging.INFO     
+log_file_name = 'logfile.txt'
+```
+
+Throughout the sample, each action taken or user notification is placed into one of the four severity buckets by calling the appropriate logging function([Debug](https://docs.python.org/3/library/logging.html#logging.Logger.debug), [Info](https://docs.python.org/3/library/logging.html#logging.Logger.info), [Warning](https://docs.python.org/3/library/logging.html#logging.Logger.warning), or [Error](https://docs.python.org/3/library/logging.html#logging.Logger.error)). To change the severity of a message, change the logging function for that message to the desired severity. The following are examples of each level used in the sample:
+```python
+logging.debug(f'Prompting user whether they would like to see the list of stream IDs.')
+logging.info(f'Operation completed. Successfully converted {converted_streams} streams.')
+logging.warning(f'Skipped {stream.Id} because it has a type of {stream.TypeId}, which is not in the mappings table.')
+logging.error(f'Encountered error while converting stream: {error}')
 ```
 
 ## Running the sample
