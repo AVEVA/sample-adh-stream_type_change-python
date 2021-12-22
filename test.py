@@ -107,9 +107,7 @@ class OCSStreamTypeChangePythonSampleTests(unittest.TestCase):
                                             name=f'{e_type.Id}.{adapter_type}Quality')
                     
                     # copy over the two existing properties
-                    new_13_type.Properties = []
-                    for prop in e_type.Properties:
-                        new_13_type.Properties.append(prop)
+                    new_13_type.Properties = [prop for prop in e_type.Properties]
                     
                     # add the new quality property
                     uint32_type = SdsType('uint32', SdsTypeCode.UInt32)
