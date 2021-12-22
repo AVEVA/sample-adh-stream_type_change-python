@@ -92,9 +92,7 @@ class OCSStreamTypeChangePythonSampleTests(unittest.TestCase):
             existing_stream_views = ocs_client.StreamViews.getStreamViews(namespace_id=namespace_id, query=existing_stream_view_query)
             
             # convert the list of stream view objects to a set of stream view ids for easier subtraction later
-            existing_stream_view_ids = set()
-            for stream_view in existing_stream_views:
-                existing_stream_view_ids.add(stream_view.Id)
+            stream_view_ids_before_script = { stream_view.Id for stream_view in existing_stream_views }
 
             # Check if the new types of TimeIndexed.<datatype>.{adapter_type}Quality exists, if they don't, create it and delete it at the end
             for e_type in existing_types:
@@ -158,12 +156,9 @@ class OCSStreamTypeChangePythonSampleTests(unittest.TestCase):
 
             # figure out which stream views were created by the sample
             stream_views_after_script = ocs_client.StreamViews.getStreamViews(namespace_id=namespace_id, query=existing_stream_view_query)
-            
-            stream_view_ids_after_script = set()
-            for stream_view in stream_views_after_script:
-                stream_view_ids_after_script.add(stream_view.Id)
+            stream_view_ids_after_script = { stream_view.Id for stream_view in stream_views_after_script }
 
-            newly_created_stream_view_ids = stream_view_ids_after_script - existing_stream_view_ids
+            newly_created_stream_view_ids = stream_view_ids_after_script - stream_view_ids_before_script
 
             # delete the stream views that the sample created
             for stream_view_id in newly_created_stream_view_ids:

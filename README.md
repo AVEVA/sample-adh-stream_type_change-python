@@ -74,6 +74,8 @@ tested_adapter_types = {'opcua'}
 incompatible_adapter_types = {'dnp3'}
 ```
 
+DNP3 is listed as incompatible because of the multiple different quality types that are possible. It is therefore not automatically detectable how to migrate any specific stream, but the above mentioned section on manual migration can be followed in this case as well.
+
 ## Adapting this sample to other use cases
 
 Although this sample is built to be able to change SDS Types in a specific use case, it can be adapted to fit a more generic use case. The type conversion only require a dictionary mapping a Stream's existing Type to the ID of the Stream View that maps this Type to a new Type. 
