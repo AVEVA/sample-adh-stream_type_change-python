@@ -20,11 +20,13 @@ def get_appsettings():
     return appsettings
 
 def affirmative_response(response):
-    logging.debug(f'checking user response of {response}')
+    """Checks if a user response is considered affirmative or not"""
+    logging.debug(f'Checking user response of {response}')
     affirmative_responses = ['y', 'yes']
     return response.lower() in affirmative_responses
 
 def output(level, message):
+    """Prints the given message to the console as well as the log file, with the given log level"""
     logging.log(level, message)
     print(message)
 
@@ -116,7 +118,7 @@ def generate_adapter_upgrade_mappings(adapter_type, ocs_client, namespace_id, te
                 output(logging.ERROR, f'This script will continue but may fail later when attempting to convert streams from {existing_type_id} to {new_type.Id}.')
                 
                 
-            # add the streamview id to the mappings list under the key of the existing type id
+            # Add the streamview id to the mappings list under the key of the existing type id
             mapping[existing_type_id] = this_stream_view.Id
         
         output(logging.INFO, 'Done creating stream views.')
@@ -249,7 +251,7 @@ if __name__ == '__main__':
     #level = logging.DEBUG   # use to troubleshoot the sample
     level = logging.INFO     # use for record keeping
 
-    # specify the log file if necessary (append if already created)
+    # Specify the log file if necessary (append if already created)
     log_file_name = 'logfile.txt'
 
     # Set up the logger
