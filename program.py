@@ -2,7 +2,7 @@ import datetime
 import json
 import logging
 import traceback
-from ocs_sample_library_preview import (OCSClient, Types, Streams, StreamViews, SdsStreamView)
+from ocs_sample_library_preview import (ADHClient, Types, Streams, StreamViews, SdsStreamView)
 
 def get_appsettings():
     """Open and parse the appsettings.json file"""
@@ -30,7 +30,7 @@ def output(level, message):
     logging.log(level, message)
     print(message)
 
-def generate_adapter_upgrade_mappings(adapter_type, ocs_client, namespace_id, test):
+def generate_adapter_upgrade_mappings(adapter_type, adh_client, namespace_id, test):
     """This function takes in an adapter type (such as 'OpcUa'), generates the necessary stream views,
     and returns a mapping table for the existing type to the stream view that maps it to the new type.
     This function is specific to the adapter version 1.1 to 1.2 upgrade use case"""
@@ -53,7 +53,7 @@ def generate_adapter_upgrade_mappings(adapter_type, ocs_client, namespace_id, te
     
     # Find types created by the adapter upgrade (TimeIndexed.<datatype>.<AdapterType>Quality):
     type_search_query = f'TimeIndexed.* AND *.{adapter_type}Quality'
-    new_types = ocs_client.Types.getTypes(namespace_id, query=type_search_query)
+    new_types = adh_client.Types.getTypes(namespace_id, query=type_search_query)
 
     if len(new_types) == 0:
         output(logging.ERROR, 'No PI Adapter v1.2 types were detected on the namespace for this adapter type. Be sure to upgrade the adapter before running this script. Quitting...')
@@ -105,13 +105,13 @@ def generate_adapter_upgrade_mappings(adapter_type, ocs_client, namespace_id, te
             data_type = type_name_parts[1]
 
             # Create the stream views from existing type to new type
-            # Note: Explicit property mappings are not required for this conversion because OCS can infer them from the property names
+            # Note: Explicit property mappings are not required for this conversion because ADH can infer them from the property names
             this_stream_view_id = f'{adapter_type}_{data_type}_quality'
             this_stream_view = SdsStreamView(id=this_stream_view_id, source_type_id=existing_type_id, target_type_id=new_type.Id)
 
             output(logging.INFO, f'Creating stream view with id {this_stream_view_id} mapping {existing_type_id} to {new_type.Id}...')
             try:
-                this_stream_view = ocs_client.StreamViews.getOrCreateStreamView(namespace_id, this_stream_view)
+                this_stream_view = adh_client.StreamViews.getOrCreateStreamView(namespace_id, this_stream_view)
             except Exception as error:
                 # Log the error, but don't raise the exception. This failure is only a problem if it causes a stream to fail to convert, which will be caught later as a separate exception
                 output(logging.ERROR, f'Encountered error while creating stream view with id {this_stream_view_id}: {error}')
@@ -135,9 +135,9 @@ def main(test=False):
     try:
         appsettings = get_appsettings()
 
-        # Read configuration from appsettings.json and create the OCS client object
-        output(logging.DEBUG, 'Authenticating to OCS...')
-        ocs_client = OCSClient(appsettings.get('ApiVersion'),
+        # Read configuration from appsettings.json and create the ADH client object
+        output(logging.DEBUG, 'Authenticating to ADH...')
+        adh_client = ADHClient(appsettings.get('ApiVersion'),
                                 appsettings.get('TenantId'),
                                 appsettings.get('Resource'),
                                 appsettings.get('ClientId'),
@@ -155,13 +155,13 @@ def main(test=False):
                 'existing_type1': 'stream_view_id1',
                 'existing_type2': 'stream_view_id2'
             } """
-        # Note: the stream views will need to be created first, whether programmatically or through the OCS portal
+        # Note: the stream views will need to be created first, whether programmatically or through the ADH portal
 
         ### Adapter 1.1 to 1.2 upgrade use case ###
-        type_to_stream_view_mappings = generate_adapter_upgrade_mappings(appsettings.get('AdapterType'), ocs_client, namespace_id, test)
+        type_to_stream_view_mappings = generate_adapter_upgrade_mappings(appsettings.get('AdapterType'), adh_client, namespace_id, test)
 
         # Get streams in the namespace
-        streams = ocs_client.Streams.getStreams(namespace_id, query=stream_search_query)
+        streams = adh_client.Streams.getStreams(namespace_id, query=stream_search_query)
 
         if len(streams) == 0:
             message = f'No stream found on namespace {namespace_id} that match the stream search pattern of {stream_search_query}'
@@ -209,7 +209,7 @@ def main(test=False):
                 if stream.TypeId in type_to_stream_view_mappings:
                     output(logging.INFO, f'Changing type of {stream.Id} away from {stream.TypeId} using steamview id {type_to_stream_view_mappings[stream.TypeId]}...')
                     try:
-                        ocs_client.Streams.updateStreamType(namespace_id, stream_id=stream.Id, stream_view_id=type_to_stream_view_mappings[stream.TypeId])
+                        adh_client.Streams.updateStreamType(namespace_id, stream_id=stream.Id, stream_view_id=type_to_stream_view_mappings[stream.TypeId])
                         converted_streams += 1
                     except Exception as error:
                         output(logging.ERROR, f'Encountered error while converting stream: {error}')

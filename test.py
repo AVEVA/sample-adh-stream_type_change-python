@@ -1,10 +1,10 @@
-"""This script tests the OCS Stream Type Change Python sample script"""
+"""This script tests the ADH Stream Type Change Python sample script"""
 
 import json
 import unittest
 
 from program import main
-from ocs_sample_library_preview import OCSClient, SdsStream, SdsType, SdsTypeProperty, SdsTypeCode
+from ocs_sample_library_preview import ADHClient, SdsStream, SdsType, SdsTypeProperty, SdsTypeCode
 
 def get_appsettings():
     """Open and parse the appsettings.json file"""
@@ -21,20 +21,20 @@ def get_appsettings():
 
     return appsettings
 
-class OCSStreamTypeChangePythonSampleTests(unittest.TestCase):
-    """Tests for the OCS Stream Type Change Python sample"""
+class ADHStreamTypeChangePythonSampleTests(unittest.TestCase):
+    """Tests for the ADH Stream Type Change Python sample"""
 
     @classmethod
     def test_main(cls):
-        """Tests the OCS Stream Type Change Python main sample script"""
+        """Tests the ADH Stream Type Change Python main sample script"""
 
         # track if an exception was thrown along the way
         exception = None
 
-        # Read configuration from appsettings.json and create the OCS client object
+        # Read configuration from appsettings.json and create the ADH client object
         appsettings = get_appsettings()
 
-        ocs_client = OCSClient(appsettings.get('ApiVersion'),
+        adh_client = ADHClient(appsettings.get('ApiVersion'),
                                 appsettings.get('TenantId'),
                                 appsettings.get('Resource'),
                                 appsettings.get('ClientId'),
@@ -51,7 +51,7 @@ class OCSStreamTypeChangePythonSampleTests(unittest.TestCase):
         assert expected_stream_search_query.lower() == stream_search_query.lower(), f'stream search pattern did not matched expected value of {expected_stream_search_query}. Abandonning test to prevent unintentional CRUD operations'
         
         # confirm no streams with this search pattern already exist. Fail the test if there are
-        existing_streams_matching_pattern = ocs_client.Streams.getStreams(namespace_id=namespace_id, query=stream_search_query)
+        existing_streams_matching_pattern = adh_client.Streams.getStreams(namespace_id=namespace_id, query=stream_search_query)
         assert len(existing_streams_matching_pattern) == 0, f'streams matching the search pattern {stream_search_query} already exist on the Namespace. Abandonning test to prevent unintentional CRUD operations'
 
         num_streams_per_type = 2
@@ -64,7 +64,7 @@ class OCSStreamTypeChangePythonSampleTests(unittest.TestCase):
 
         # Confirm a few of the TimeIndexed.<datatype> types exist on the target namespace
         existing_type_query = f'TimeIndexed.* AND NOT *.{adapter_type}Quality'
-        existing_types = ocs_client.Types.getTypes(namespace_id=namespace_id, query=existing_type_query)
+        existing_types = adh_client.Types.getTypes(namespace_id=namespace_id, query=existing_type_query)
         existing_types = [e_type for e_type in existing_types if e_type.Id.startswith('TimeIndexed.')]
 
         assert len(existing_types) > 2, 'Target namespace needs at least 2 existing TimeIndexed.<data_type> SDS Types to perform this test.'
@@ -79,7 +79,7 @@ class OCSStreamTypeChangePythonSampleTests(unittest.TestCase):
                                             type_id=e_type.Id, 
                                             name=stream_id_template.format(sds_type=e_type.Id, i=i))
 
-                    ocs_client.Streams.getOrCreateStream(namespace_id=namespace_id, stream=this_stream)
+                    adh_client.Streams.getOrCreateStream(namespace_id=namespace_id, stream=this_stream)
 
                     # track that this stream was created by the test so that it's deleted at the end
                     streams_created.append(this_stream.Id)
@@ -89,7 +89,7 @@ class OCSStreamTypeChangePythonSampleTests(unittest.TestCase):
 
             # Check if the stream views that the sample will create already exist, if they do don't delete them at the end
             existing_stream_view_query = f'{adapter_type}_* AND *_quality'
-            existing_stream_views = ocs_client.StreamViews.getStreamViews(namespace_id=namespace_id, query=existing_stream_view_query)
+            existing_stream_views = adh_client.StreamViews.getStreamViews(namespace_id=namespace_id, query=existing_stream_view_query)
             
             # convert the list of stream view objects to a set of stream view ids for easier subtraction later
             stream_view_ids_before_script = { stream_view.Id for stream_view in existing_stream_views }
@@ -98,7 +98,7 @@ class OCSStreamTypeChangePythonSampleTests(unittest.TestCase):
             for e_type in existing_types:
                 try:
                     # we don't need to do anything with this type object, we just need to check if it exists already
-                    _ = ocs_client.Types.getType(namespace_id=namespace_id, type_id=f'{e_type.Id}.{adapter_type}Quality')
+                    _ = adh_client.Types.getType(namespace_id=namespace_id, type_id=f'{e_type.Id}.{adapter_type}Quality')
 
                 except:
                     # create the type
@@ -114,9 +114,9 @@ class OCSStreamTypeChangePythonSampleTests(unittest.TestCase):
                     quality_prop = SdsTypeProperty(id='Quality', is_key=False, sds_type=uint32_type, name='Quality')
                     new_13_type.Properties.append(quality_prop)
 
-                    # commit it to OCS
+                    # commit it to ADH
                     # Note: This call could raise an exception, but it will be good to end the test and not continue on with wrong types, incase they linger on the namespace for some reason
-                    ocs_client.Types.getOrCreateType(namespace_id=namespace_id, type=new_13_type)
+                    adh_client.Types.getOrCreateType(namespace_id=namespace_id, type=new_13_type)
 
                     # track that the type was created by the test so that it's deleted at the end
                     types_created.append(new_13_type.Id)
@@ -135,7 +135,7 @@ class OCSStreamTypeChangePythonSampleTests(unittest.TestCase):
                 # look up what the old was, and add .{adapter_type}Quality, such as ".OpcUaQuality", to predict what the new type should be
                 old_sds_type_id = stream_to_old_type_mappings[stream_created]
                 expected_new_type_id = f'{old_sds_type_id}.{adapter_type}Quality'
-                new_sds_type = ocs_client.Streams.getStreamType(namespace_id=namespace_id, stream_id=stream_created)
+                new_sds_type = adh_client.Streams.getStreamType(namespace_id=namespace_id, stream_id=stream_created)
                 assert new_sds_type.Id == expected_new_type_id, f'type conversion failed for {stream_created}. old type: {old_sds_type_id}, expected type: {expected_new_type_id}, new type: {new_sds_type}'
 
 
@@ -147,13 +147,13 @@ class OCSStreamTypeChangePythonSampleTests(unittest.TestCase):
             # delete the streams
             for stream_created in streams_created:
                 try:
-                    ocs_client.Streams.deleteStream(namespace_id=namespace_id, stream_id=stream_created)
+                    adh_client.Streams.deleteStream(namespace_id=namespace_id, stream_id=stream_created)
                 except Exception as e:
                     print(f'failed to delete stream {stream_created}. {e}')
                     exception = e
 
             # figure out which stream views were created by the sample
-            stream_views_after_script = ocs_client.StreamViews.getStreamViews(namespace_id=namespace_id, query=existing_stream_view_query)
+            stream_views_after_script = adh_client.StreamViews.getStreamViews(namespace_id=namespace_id, query=existing_stream_view_query)
             stream_view_ids_after_script = { stream_view.Id for stream_view in stream_views_after_script }
 
             newly_created_stream_view_ids = stream_view_ids_after_script - stream_view_ids_before_script
@@ -161,7 +161,7 @@ class OCSStreamTypeChangePythonSampleTests(unittest.TestCase):
             # delete the stream views that the sample created
             for stream_view_id in newly_created_stream_view_ids:
                 try:
-                    ocs_client.StreamViews.deleteStreamView(namespace_id=namespace_id, stream_view_id=stream_view_id)
+                    adh_client.StreamViews.deleteStreamView(namespace_id=namespace_id, stream_view_id=stream_view_id)
                 except Exception as e:
                     print(f'failed to delete stream view {stream_view_id}. {e}')
                     exception = e
@@ -169,7 +169,7 @@ class OCSStreamTypeChangePythonSampleTests(unittest.TestCase):
             # delete the types
             for type_created in types_created:
                 try:
-                    ocs_client.Types.deleteType(namespace_id=namespace_id, type_id=type_created)
+                    adh_client.Types.deleteType(namespace_id=namespace_id, type_id=type_created)
                 except Exception as e:
                     print(f'failed to delete type {type_created}. {e}')
                     exception = e
