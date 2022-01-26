@@ -68,7 +68,7 @@ This sample performs the specific action of migrating Streams from the version 1
 Within the `generate_adapter_upgrade_mappings` function, the specified `adapter_type` is checked against a list of tested and incompatible adapter types.
 - If an incompatible adapter type is encountered, the sample will exit with an error message. 
 - If the adapter type is neither tested nor known to be incompatible, a warning is logged and the script continues.
-    - This is could a case where a new adapter type is being used, we welcome feedback to be sent to `samples@osisoft.com`
+    - This is could a case where a new adapter type is being used, we welcome feedback to be sent to `samples@aveva.com`
     - This also could be a case of the adapter type having a typo and not matching an actual adapter type (such as `OpcUa`, `DNP3`). In this case, nothing will migrate because no new version 1.2 Adapter SDS Types will be detected, and no action will be performed.
 
 Over time, these sets will be expanded to reflect more adapter types. At the current moment, these are the known tests:
