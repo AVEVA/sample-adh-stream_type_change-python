@@ -1,30 +1,33 @@
-# OSIsoft Cloud Services Stream Type Change Python Sample
+# AVEVA Data Hub Stream Type Change Python Sample
 
-**Version:** 1.0.0
+| :loudspeaker: **Notice**: Samples have been updated to reflect that they work on AVEVA Data Hub. The samples also work on OSIsoft Cloud Services unless otherwise noted. |
+| -----------------------------------------------------------------------------------------------|  
 
-[![Build Status](https://dev.azure.com/osieng/engineering/_apis/build/status/product-readiness/OCS/osisoft.sample-ocs-stream_type_change-python?repoName=osisoft%2Fsample-ocs-stream_type_change-python&branchName=main)](https://dev.azure.com/osieng/engineering/_build/latest?definitionId=4426&repoName=osisoft%2Fsample-ocs-stream_type_change-python&branchName=main)
+**Version:** 1.1.0
+
+[![Build Status](https://dev.azure.com/osieng/engineering/_apis/build/status/product-readiness/ADH/aveva.sample-adh-stream_type_change-python?branchName=main)](https://dev.azure.com/osieng/engineering/_build/latest?definitionId=4426&branchName=main)
 
 Developed against Python 3.9.5.
 
 ## Requirements
 
-- Python 3.9+
+- Python 3.7+
 - Install required modules: `pip install -r requirements.txt`
-- Register a [Client-Credentials Client](https://cloud.osisoft.com/clients) in your OSIsoft Cloud Services tenant and create a client secret to use in the configuration of this sample. ([Video Walkthrough](https://www.youtube.com/watch?v=JPWy0ZX9niU))
+- Register a [Client-Credentials Client](https://datahub.connect.aveva.com/clients) in your AVEVA Data Hub tenant and create a client secret to use in the configuration of this sample. ([Video Walkthrough](https://www.youtube.com/watch?v=JPWy0ZX9niU))
   - Note: the client must have a role with permissions to edit the specified streams and to create streamviews. 
   - If the client being used has the tenant admin role, we recommend creating a short lived secret to run this sample; if the secret were to be compromised, there would only be a short period of time for it to be useable. 
 
 ## About this sample
 
-This sample uses the OCS sample python library, which makes REST API calls to OCS, to change the underlying SDS Types of Streams matching a search pattern. The main purpose of this sample is to demonstrate the steps necessary to change the underlying SDS Type of a Stream in OCS.
+This sample uses the ADH sample python library, which makes REST API calls to ADH, to change the underlying SDS Types of Streams matching a search pattern. The main purpose of this sample is to demonstrate the steps necessary to change the underlying SDS Type of a Stream in ADH.
 
 The processing steps of the sample are as follows:
 
-1. The [appsettings.json](appsettings.placeholder.json) file is parsed into an appsettings object and an OCS client is created
+1. The [appsettings.json](appsettings.placeholder.json) file is parsed into an appsettings object and an ADH client is created
 1. A `type_to_stream_view_mappings` dictionary object is created to map an existing Type to a Stream View Id
     1. The Stream View will define how the existing Type's properties will map to the new Type's properties
     1. See the next two sections for more details on the creation of this dictionary
-1. All Streams matching the `StreamSearchPattern` from [appsettings.json](appsettings.placeholder.json) are found from OCS
+1. All Streams matching the `StreamSearchPattern` from [appsettings.json](appsettings.placeholder.json) are found from ADH
 1. The user is prompted for confirmation to continue with processing since this is a change to the Streams
 1. Each Stream's Type is changed from the existing Type to the new Type by calling the [Update Stream Type](https://docs.osisoft.com/bundle/ocs/page/api-reference/sequential-data-store/sds-streams.html#update-stream-type) action. 
 
@@ -34,7 +37,7 @@ The sample's specific logic as written will change the Types of PI Adapter strea
 
 The steps to run this sample as an adapter stream type upgrade utility are as follows:
 
-1. Upgrade the adapter instance from 1.1 to 1.2. New types will be created in the already configured OCS endpoint
+1. Upgrade the adapter instance from 1.1 to 1.2. New types will be created in the already configured ADH endpoint
 1. Change this sample's [appsettings.json](appsettings.placeholder.json) settings to include:
     1. The adapter name (eg: `OpcUa`)
     1. The stream search pattern (eg: the `StreamIdPrefix` for this adapter instance's Data Source)
@@ -43,16 +46,16 @@ The steps to run this sample as an adapter stream type upgrade utility are as fo
 
 ### Enumeration Type Handling
 
-[Enumeration data types](https://docs.osisoft.com/bundle/pi-adapter-opc-ua/page/overview/principles-of-operation.html#enumeration-types) have been introduced in the 1.2 version of some PI Adapters. For these enum streams, the Adapter will send create the enum type in the OCS Namespace, but **the script will not be able to migrate the stream to these types**. 
-- The existing streams will currently be configured in OCS as an integer type, and it is not possible for the sample to detect whether these streams should migrate to the same integer type with the quality flag, or migrate to an enum type. 
+[Enumeration data types](https://docs.osisoft.com/bundle/pi-adapter-opc-ua/page/overview/principles-of-operation.html#enumeration-types) have been introduced in the 1.2 version of some PI Adapters. For these enum streams, the Adapter will send create the enum type in the ADH Namespace, but **the script will not be able to migrate the stream to these types**. 
+- The existing streams will currently be configured in ADH as an integer type, and it is not possible for the sample to detect whether these streams should migrate to the same integer type with the quality flag, or migrate to an enum type. 
 - The script will therefore attempt to migrate them to the same integer type with the quality flag (which should immediately begin the data ingress of the quality data)
     - eg. `TimeIndexed.UInt32` -> `TimeIndexed.UInt32.OpcUaQuality`
 - Since the sample will not create any new types, if the Adapter instance does not have any streams writing to the integer type with the quality flag, but they are all attempting to write to enum types, then this partial migration will not be possible. 
 
 ### Migrating Enum types manually
 
-To migrate the enum type streams in OCS, follow the steps below for `Adapting this sample to other use cases.` While going through that section, use these steps for this specific use case
-1. Manually create the stream view in the OCS portal for the existing integer Type to a specific enum Type.
+To migrate the enum type streams in ADH, follow the steps below for `Adapting this sample to other use cases.` While going through that section, use these steps for this specific use case
+1. Manually create the stream view in the ADH portal for the existing integer Type to a specific enum Type.
 1. Add an entry to the `type_to_stream_view_mappings` dictionary for the existing integer Type to the Stream View ID created in the previous step.
 1. Set the `StreamSearchPattern` to match **only** these integer Typed Streams being matched to this Specific enum Type.
 1. Run the sample to convert these streams
@@ -88,18 +91,18 @@ This section of [program.py](program.py) covers the creation and/or definition o
         'existing_type1': 'stream_view_id1',
         'existing_type2': 'stream_view_id2'
     } """
-# Note: the stream views will need to be created first, whether programmatically or through the OCS portal
+# Note: the stream views will need to be created first, whether programmatically or through the ADH portal
 
 ### Adapter 1.1 to 1.2 upgrade use case ###
-type_to_stream_view_mappings = generate_adapter_upgrade_mappings(appsettings.get('AdapterType'), ocs_client)
+type_to_stream_view_mappings = generate_adapter_upgrade_mappings(appsettings.get('AdapterType'), adh_client)
 ```
 
-Alternatively, another function could be created to programmatically generate the necessary Stream Views, and then mappings table. For assistance with the programmatic creation of Stream Views and explicitly mapping properties from one Type to another Type, see the [OCS Waveform Python sample](https://github.com/osisoft/sample-ocs-waveform-python).
+Alternatively, another function could be created to programmatically generate the necessary Stream Views, and then mappings table. For assistance with the programmatic creation of Stream Views and explicitly mapping properties from one Type to another Type, see the [ADH Waveform Python sample](https://github.com/osisoft/sample-ocs-waveform-python).
 
 The steps to run this sample as an adapter stream type upgrade utility are as follows:
 
-1. Create the new Types in OCS, either programmatically or in the [OCS Portal](cloud.osisoft.com)
-1. Create the Stream View in OCS that maps the existing Type to the new Type.
+1. Create the new Types in ADH, either programmatically or in the [ADH Portal](datahub.connect.aveva.com)
+1. Create the Stream View in ADH that maps the existing Type to the new Type.
     1. For assistance with this step, see how to [Get Started With Stream Views](https://docs.osisoft.com/bundle/ocs/page/overview/get-started/gs-stream-views.html)
 1. Change this sample's [appsettings.json](appsettings.placeholder.json) settings to include the stream search pattern
 1. Define `type_to_stream_view_mappings` to map the existing Types to the corresponding Stream View Id
@@ -113,11 +116,11 @@ The sample is configured by modifying the file [appsettings.placeholder.json](ap
 
 ### Configuring appsettings.json
 
-OSIsoft Cloud Services is secured by obtaining tokens from its identity endpoint. Client-credentials clients provide a client application identifier and an associated secret (or key) that are authenticated against the token endpoint. You must replace the placeholders in your `appsettings.json` file with the authentication-related values from your tenant and a client-credentials client created in your OCS tenant.
+AVEVA Data Hub is secured by obtaining tokens from its identity endpoint. Client-credentials clients provide a client application identifier and an associated secret (or key) that are authenticated against the token endpoint. You must replace the placeholders in your `appsettings.json` file with the authentication-related values from your tenant and a client-credentials client created in your ADH tenant.
 
 ```json
 {
-  "Resource": "https://dat-b.osisoft.com",                          # This is the base OCS URL being used
+  "Resource": "https://uswe.datahub.connect.aveva.com",             # This is the base ADH URL being used
   "ApiVersion": "v1",                                               # The API version should most likely be kept at v1
   "TenantId": "REPLACE_WITH_TENANT_ID",                             # The Tenant that is being written to by the Adapter
   "NamespaceId": "REPLACE_WITH_NAMESPACE_ID",                       # The Namespace ID that is being written to by the Adapter
@@ -130,7 +133,7 @@ OSIsoft Cloud Services is secured by obtaining tokens from its identity endpoint
 
 ## Logging
 
-This sample uses the [Python logging](https://docs.python.org/3/library/logging.html) library to create a log file of `Debug`, `Info`, `Warning`, and `Error` messages. Since CRUD operations are being performed against OCS, it can be important to have a record of these oeprations. 
+This sample uses the [Python logging](https://docs.python.org/3/library/logging.html) library to create a log file of `Debug`, `Info`, `Warning`, and `Error` messages. Since CRUD operations are being performed against ADH, it can be important to have a record of these oeprations. 
 
 The default log file name is `logfile.txt` and the default log level is `INFO`. These are configurable at the bottom of [program.py](program.py) where the logging is setup
 ```python
@@ -179,7 +182,7 @@ The testing procedure is as follows:
 
 ### Test Requirements
 
-In order to execute the test against a particular OCS namespace, the following assertions must be true:
+In order to execute the test against a particular ADH namespace, the following assertions must be true:
 - The namespace already has two or more TimeIndexed.[DataType] SDS Types. 
 - The namespace does not already have any streams that match the testing syntax of `e2etest_for_{sds_type}_{i}_conversion`
 - The stream search pattern in appsettings matches the pattern for testing syntax. 
@@ -197,5 +200,5 @@ python test.py
 
 Tested against Python 3.9.1
 
-For the main OCS samples page [ReadMe](https://github.com/osisoft/OSI-Samples-OCS)  
-For the main OSIsoft samples page [ReadMe](https://github.com/osisoft/OSI-Samples)
+For the main ADH samples page [ReadMe](https://github.com/osisoft/OSI-Samples-OCS)  
+For the main AVEVA samples page [ReadMe](https://github.com/osisoft/OSI-Samples)

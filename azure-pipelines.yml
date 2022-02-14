@@ -53,7 +53,7 @@ jobs:
     steps:
       - template: '/miscellaneous/build_templates/appsettings.yml@templates'
         parameters:
-          secrets: 'TenantId, NamespaceId, ClientId, ClientSecret'
+          secrets: 'TenantId, NamespaceId, ClientId, ClientSecret, Resource'
 
       - script: |
           echo Install test tools  
