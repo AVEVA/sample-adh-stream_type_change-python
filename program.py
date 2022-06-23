@@ -2,7 +2,7 @@ import datetime
 import json
 import logging
 import traceback
-from ocs_sample_library_preview import (ADHClient, Types, Streams, StreamViews, SdsStreamView)
+from adh_sample_library_preview import (ADHClient, Types, Streams, StreamViews, SdsStreamView)
 
 def get_appsettings():
     """Open and parse the appsettings.json file"""
