@@ -4,7 +4,7 @@ import json
 import unittest
 
 from program import main
-from ocs_sample_library_preview import ADHClient, SdsStream, SdsType, SdsTypeProperty, SdsTypeCode
+from adh_sample_library_preview import ADHClient, SdsStream, SdsType, SdsTypeProperty, SdsTypeCode
 
 def get_appsettings():
     """Open and parse the appsettings.json file"""
