@@ -1,6 +1,6 @@
 # AVEVA Data Hub Stream Type Change Python Sample
 
-**Version:** 1.1.4
+**Version:** 1.1.5
 
 [![Build Status](https://dev.azure.com/osieng/engineering/_apis/build/status/product-readiness/ADH/aveva.sample-adh-stream_type_change-python?branchName=main)](https://dev.azure.com/osieng/engineering/_build/latest?definitionId=4426&branchName=main)
 
